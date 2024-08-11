@@ -1,14 +1,22 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 # imports that won't cause errors
-import sys
+import datetime
+import logging
 import os
 import signal
 import subprocess
+import sys
 from threading import Thread
 from time import sleep
-import datetime
-import logging
+from src import printings
+from src import deauth
+from src import scan
+from src import sniff
+from src import spoof
+
+
+
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR) # scapy, please shut up..
 
 # terminal colors
@@ -26,15 +34,15 @@ def auto_installer():
     if they do not already exist
     '''
     print("{R}ERROR: Modules missing.{N}".format(R=RED, N=NORMAL))
-    inst = raw_input("Do you want to automatically install all requirements? (y/n): ").lower()
+    inst = input("Do you want to automatically install all requirements? (y/n): ").lower()
 
     if inst in ('y', 'yes'):
         print("[{Y}*{N}] Installing requirements, please stand by...".format(Y=YELLOW, N=NORMAL))
-        subprocess.call("sudo pip install netifaces", shell=True)
-        subprocess.call("sudo apt-get install python-scapy -y > {}".format(os.devnull), shell=True)
-        subprocess.call("sudo apt-get install python-nmap -y > {}".format(os.devnull), shell=True)
-        subprocess.call("sudo apt-get install python-nfqueue -y > {}".format(os.devnull), shell=True)
-	subprocess.call("sudo apt-get install nmap -y > {}".format(os.devnull), shell=True)
+        subprocess.call("pip3 install netifaces", shell=True)
+        subprocess.call("pip3 install python-nmap > {}".format(os.devnull), shell=True)
+        subprocess.call("pip3 install scapy > {}".format(os.devnull), shell=True)
+        subprocess.call("pip3 install nfqp3 > {}".format(os.devnull), shell=True)
+        subprocess.call("sudo apt-get install nmap -y > {}".format(os.devnull), shell=True)
         sys.exit("\n[{G}+{N}] Requirements installed.\n".format(G=GREEN, N=NORMAL))
 
     sys.exit(0)
@@ -43,20 +51,22 @@ def auto_installer():
 Usually modules that need to be installed
 '''
 try:
+    import netfilterqueue
     import netifaces
-    from scapy.all import *
-    import nfqueue
     import nmap
+    from scapy.all import *
 except ImportError:
     auto_installer()
 
-from src import *
+#from src import deauth, scan, sniff, spoof
+
+
 def get_option():
     '''
     Handling the user's input
     '''
     while True:
-        raw_option = raw_input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
+        raw_option = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
         if raw_option == "help":
             return raw_option
 
@@ -113,7 +123,7 @@ def get_interface():
     print("\n")
 
     while True:
-        raw_interface = raw_input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
+        raw_interface = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
 
         try:
             interface = int(raw_interface)
@@ -157,7 +167,7 @@ def get_gateway_ip():
         return netifaces.gateways()['default'][netifaces.AF_INET][0]
     except KeyError:
         print("\n{R}ERROR: Unable to retrieve gateway IP address.\n{N}".format(R=RED, N=NORMAL))
-        return raw_input("Please enter gateway IP address manually: ")
+        return input("Please enter gateway IP address manually: ")
 
 def get_local_ip(interface):
     try:
@@ -167,7 +177,7 @@ def get_local_ip(interface):
         return local_ip
     except KeyError:
         print("\n{R}ERROR: Unable to retrieve local IP address.{N}\n")
-        return raw_input("Please enter your local IP address manually: ")
+        return input("Please enter your local IP address manually: ")
 
 def get_mac_by_ip(ipaddr):
     # get the MAC by sending ARP packets to the desired IP
@@ -178,7 +188,7 @@ def get_mac_by_ip(ipaddr):
             return rcv[Ether].src
         except KeyError:
             print("\n{R}ERROR: Unable to retrieve MAC address from IP address: {N}{ip}\n".format(R=RED, N=NORMAL, ip=ipaddr))
-            return raw_input("Please enter MAC address manually: ")
+            return input("Please enter MAC address manually: ")
 
 def host_scan(advanced_scan=False):
     '''
@@ -199,7 +209,7 @@ def host_scan(advanced_scan=False):
     
     print("{N}The following IP range will be scanned with NMAP: {G}{ipr}{N}".format(G=GREEN, N=NORMAL, ipr=ip_range))
     print("Press {Y}'Enter'{N} to agree or enter your custom IP range.".format(Y=YELLOW, N=NORMAL))
-    ipr_change = raw_input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
+    ipr_change = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
     if ipr_change:
         ip_range = ipr_change
     
@@ -346,7 +356,7 @@ def get_targets_from_hosts(interface):
     print("{N}The following IP range will be scanned with NMAP: {G}{ipr}{N}".format(G=GREEN, N=NORMAL, ipr=ip_range))
     print("Press {Y}'Enter'{N} to agree or enter your custom IP range.".format(Y=YELLOW, N=NORMAL))
     
-    ipr_change = raw_input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
+    ipr_change = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED))
     if ipr_change:
         ip_range = ipr_change
     
@@ -382,7 +392,7 @@ def get_targets_from_hosts(interface):
     print("\n\nChoose the target(s) seperated by {R}','{N} (comma).\nType {R}'all'{N} to choose everything listed.".format(R=RED, N=NORMAL))
 
     while True:
-        targets_in = raw_input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
+        targets_in = input("{N}#{R}>{N} ".format(N=NORMAL, R=RED)).lower()
         targets_in = targets_in.replace(" ", "")
 
         if targets_in == "all":
@@ -441,7 +451,7 @@ def arp_spoof():
 
     arpspoof = spoof.ARPSpoof(targets, gateway_ip, gateway_mac, interface)
 
-     #printings.arp_spoof()
+    printings.arp_spoof()
 
     for mac in targets:
         print(" {G}->{N}  {mac} ({ip})".format(G=GREEN, N=NORMAL, mac=mac.upper(), ip=targets[mac]))
@@ -521,7 +531,7 @@ def deauth_attack():
     print("\nSeperate multiple targets with {R}','{N} (comma).".format(R=RED, N=NORMAL))
 
     while True:
-        ap_in = raw_input("#{R}>{N} ".format(R=RED, N=NORMAL))
+        ap_in = input("#{R}>{N} ".format(R=RED, N=NORMAL))
         ap_in = ap_in.replace(" ", "")
 
         if not "," in ap_in:

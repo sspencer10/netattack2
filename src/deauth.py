@@ -6,10 +6,9 @@ import socket
 from subprocess import call
 from threading import Thread
 from time import sleep
-import printings
-
-# local imports
-from scan import WifiScan
+from src import printings
+from src import scan
+from src import WiFiScan
 
 conf.verb = 0
 
